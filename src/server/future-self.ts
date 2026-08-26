@@ -205,7 +205,7 @@ export function createFutureSelfService({
 }) {
   const baseUrl = env.NEW_API_BASE_URL?.replace(/\/+$/, '');
   const apiKey = env.NEW_API_KEY?.trim();
-  const configuredModel = env.NEW_API_MODEL?.trim();
+  const configuredModel = env.NEW_API_MODEL?.trim() || 'deepseek-v4-flash';
   let discoveredModel: { id: string; expiresAt: number } | undefined;
 
   if (!baseUrl || !apiKey) {

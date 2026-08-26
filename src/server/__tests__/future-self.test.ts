@@ -73,43 +73,33 @@ describe('future-self server core', () => {
     });
   });
 
-  it('discovers a model and returns a normalized real-service-shaped result', async () => {
-    const fetchImpl = jest
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse(200, {
-          object: 'list',
-          data: [
-            { id: 'text-embedding-3-small', object: 'model', created: 0, owned_by: 'openai' },
-            { id: 'deepseek-chat', object: 'model', created: 0, owned_by: 'deepseek' },
-          ],
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(200, {
-          id: 'chatcmpl-1',
-          object: 'chat.completion',
-          created: 0,
-          model: 'deepseek-chat',
-          choices: [
-            {
-              index: 0,
-              message: {
-                role: 'assistant',
-                content:
-                  '{"futureMessage":"我已经把提案交出去了。","moments":[{"title":"完成提案","timeWindow":"下午","emotion":"踏实"}]}',
-              },
-              finish_reason: 'stop',
+  it('honors an explicitly configured model', async () => {
+    const fetchImpl = jest.fn().mockResolvedValueOnce(
+      jsonResponse(200, {
+        id: 'chatcmpl-1',
+        object: 'chat.completion',
+        created: 0,
+        model: 'deepseek-chat',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content:
+                '{"futureMessage":"我已经把提案交出去了。","moments":[{"title":"完成提案","timeWindow":"下午","emotion":"踏实"}]}',
             },
-          ],
-          usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
-        }),
-      );
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }),
+    );
 
     const service = createFutureSelfService({
       env: {
         NEW_API_BASE_URL: 'https://pinova.ai/v1',
         NEW_API_KEY: 'test-token',
+        NEW_API_MODEL: 'deepseek-chat',
       },
       fetchImpl,
       now: () => new Date('2026-08-26T08:00:00.000Z'),
@@ -135,15 +125,54 @@ describe('future-self server core', () => {
 
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
-      'https://pinova.ai/v1/models',
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer test-token' }),
-      }),
-    );
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      2,
       'https://pinova.ai/v1/chat/completions',
       expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('uses deepseek-v4-flash by default without requesting the model list', async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      jsonResponse(200, {
+        id: 'chatcmpl-default-model',
+        object: 'chat.completion',
+        created: 0,
+        model: 'deepseek-v4-flash',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content:
+                '{"futureMessage":"我已经把今天想做的事完成了。","moments":[{"title":"完成今天的事","timeWindow":"今天","emotion":"踏实"}]}',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }),
+    );
+
+    const service = createFutureSelfService({
+      env: {
+        NEW_API_BASE_URL: 'https://pinova.ai/v1',
+        NEW_API_KEY: 'test-token',
+      },
+      fetchImpl,
+    });
+
+    await expect(
+      service.generate({
+        diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
+        targetDate: '2026-08-27',
+      }),
+    ).resolves.toMatchObject({ model: 'deepseek-v4-flash' });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://pinova.ai/v1/chat/completions',
+      expect.objectContaining({
+        body: expect.stringContaining('"model":"deepseek-v4-flash"'),
+      }),
     );
   });
 
