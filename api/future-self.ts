@@ -3,6 +3,7 @@ import {
   createFutureSelfService,
   validateDiaryRequest,
 } from '../src/server/future-self';
+import type { FutureSelfProfileDraft } from '../src/features/future-diary/profile';
 
 type RequestLike = {
   method?: string;
@@ -17,7 +18,11 @@ type ResponseLike = {
 };
 
 type FutureSelfServiceLike = {
-  generate(request: { diaryText: string; targetDate: string }): Promise<unknown>;
+  generate(request: {
+    diaryText: string;
+    targetDate: string;
+    profile: FutureSelfProfileDraft;
+  }): Promise<unknown>;
 };
 
 function firstHeader(value: string | string[] | undefined): string {

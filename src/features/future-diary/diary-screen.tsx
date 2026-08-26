@@ -17,11 +17,14 @@ import { createFutureDiaryClient, type FutureDiaryClient } from './client';
 import { updateMomentStatus } from './diary-state';
 import { createDiaryStorage, type DiaryStorage } from './storage';
 import type { FutureDiary, MomentStatus } from './types';
+import type { FutureSelfProfile } from './profile';
 
 type FutureDiaryScreenProps = {
   client?: FutureDiaryClient;
   storage?: DiaryStorage;
   now?: () => Date;
+  profile: FutureSelfProfile;
+  onEditProfile?: () => void;
 };
 
 const STATUS_LABEL: Record<MomentStatus, string> = {
@@ -45,7 +48,13 @@ function displayDate(date: string) {
   return `${Number(month)} 月 ${Number(day)} 日`;
 }
 
-export function FutureDiaryScreen({ client, storage, now = () => new Date() }: FutureDiaryScreenProps) {
+export function FutureDiaryScreen({
+  client,
+  storage,
+  now = () => new Date(),
+  profile,
+  onEditProfile,
+}: FutureDiaryScreenProps) {
   const [resolvedClient] = useState(() => client ?? createFutureDiaryClient());
   const [resolvedStorage] = useState(() => storage ?? createDiaryStorage());
   const [diary, setDiary] = useState<FutureDiary | null>(() => resolvedStorage.load());
@@ -63,7 +72,7 @@ export function FutureDiaryScreen({ client, storage, now = () => new Date() }: F
     setError('');
     setIsLoading(true);
     try {
-      const generated = await resolvedClient.generate({ diaryText, targetDate });
+      const generated = await resolvedClient.generate({ diaryText, targetDate, profile });
       resolvedStorage.save(generated);
       setDiary(generated);
     } catch (caught) {
@@ -119,9 +128,16 @@ export function FutureDiaryScreen({ client, storage, now = () => new Date() }: F
         >
           <View style={styles.page}>
             <View style={styles.header}>
-              <View style={styles.brandRow}>
-                <View style={styles.brandMark} />
-                <Text style={styles.eyebrow}>未来日记 · 写给明天</Text>
+              <View style={styles.headerTop}>
+                <View style={styles.brandRow}>
+                  <View style={styles.brandMark} />
+                  <Text style={styles.eyebrow}>未来日记 · 写给明天</Text>
+                </View>
+                {onEditProfile ? (
+                  <Pressable onPress={onEditProfile} style={styles.profileButton}>
+                    <Text style={styles.profileButtonText}>调整未来的我</Text>
+                  </Pressable>
+                ) : null}
               </View>
               <Text style={styles.title}>{diary ? '我从明天回来了' : '先记得，再发生。'}</Text>
               <Text style={styles.subtitle}>
@@ -276,9 +292,12 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   header: { marginBottom: 28 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 18 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 18 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   brandMark: { width: 22, height: 5, borderRadius: 4, backgroundColor: colors.accent },
   eyebrow: { color: colors.muted, fontSize: 13, fontWeight: '700', letterSpacing: 1.2 },
+  profileButton: { borderColor: colors.border, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  profileButtonText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   title: { color: colors.ink, fontSize: 34, lineHeight: 42, fontWeight: '800', letterSpacing: -1 },
   subtitle: { color: colors.muted, fontSize: 16, lineHeight: 25, marginTop: 10, maxWidth: 560 },
   editorCard: {

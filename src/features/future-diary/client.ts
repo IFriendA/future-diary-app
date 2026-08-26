@@ -1,8 +1,10 @@
 import type { FutureDiary, FutureSelfResult } from './types';
+import type { FutureSelfProfile } from './profile';
 
 type GenerateInput = {
   diaryText: string;
   targetDate: string;
+  profile: FutureSelfProfile;
 };
 
 type FetchResponse = {

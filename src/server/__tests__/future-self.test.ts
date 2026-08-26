@@ -16,6 +16,15 @@ function jsonResponse(status: number, body: unknown) {
   };
 }
 
+const profile = {
+  mbti: 'INFP',
+  behaviorLogic: '我做决定时会先感受自己是否认同，压力大时容易拖延，但明确第一步后就能开始。',
+  futureSelfGap: '希望未来的我更敢表达真实想法，也能在犹豫时先行动。',
+  supportStyle: 'gentle',
+  createdAt: '2026-08-26T10:00:00.000Z',
+  updatedAt: '2026-08-26T10:00:00.000Z',
+} as const;
+
 describe('future-self server core', () => {
   it('rejects diary text shorter than ten characters', () => {
     expect(validateDiaryRequest({ diaryText: '太短了', targetDate: '2026-08-27' })).toEqual({
@@ -30,14 +39,36 @@ describe('future-self server core', () => {
       validateDiaryRequest({
         diaryText: '  明天下午我已经完成了提案，也认真吃了午饭。  ',
         targetDate: '2026-08-27',
+        profile: {
+          mbti: 'INFP',
+          behaviorLogic: profile.behaviorLogic,
+          futureSelfGap: profile.futureSelfGap,
+          supportStyle: 'gentle',
+        },
       }),
     ).toEqual({
       ok: true,
       value: {
         diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
         targetDate: '2026-08-27',
+        profile: {
+          mbti: 'INFP',
+          behaviorLogic: profile.behaviorLogic,
+          futureSelfGap: profile.futureSelfGap,
+          supportStyle: 'gentle',
+        },
       },
     });
+  });
+
+  it('rejects a diary request without a valid MBTI profile', () => {
+    expect(
+      validateDiaryRequest({
+        diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
+        targetDate: '2026-08-27',
+        profile: { ...profile, mbti: 'ABCD' },
+      }),
+    ).toEqual({ ok: false, status: 400, message: '未来人格资料不完整，请重新设置。' });
   });
 
   it('selects a conversational model and excludes non-chat models', () => {
@@ -109,6 +140,7 @@ describe('future-self server core', () => {
       service.generate({
         diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
         targetDate: '2026-08-27',
+        profile,
       }),
     ).resolves.toEqual({
       futureMessage: '我已经把提案交出去了。',
@@ -126,7 +158,10 @@ describe('future-self server core', () => {
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
       'https://pinova.ai/v1/chat/completions',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('我的 MBTI：INFP'),
+      }),
     );
   });
 
@@ -164,6 +199,7 @@ describe('future-self server core', () => {
       service.generate({
         diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
         targetDate: '2026-08-27',
+        profile,
       }),
     ).resolves.toMatchObject({ model: 'deepseek-v4-flash' });
 
@@ -222,6 +258,7 @@ describe('future-self server core', () => {
       service.generate({
         diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
         targetDate: '2026-08-27',
+        profile,
       }),
     ).rejects.toMatchObject<Partial<FutureSelfError>>({ code, message });
   });
@@ -255,6 +292,7 @@ describe('future-self server core', () => {
       service.generate({
         diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
         targetDate: '2026-08-27',
+        profile,
       }),
     ).rejects.toMatchObject({ code: 'invalid_response' });
   });
@@ -303,6 +341,7 @@ describe('future-self Vercel handler', () => {
         body: {
           diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
           targetDate: '2026-08-27',
+          profile,
         },
       },
       response,
@@ -313,6 +352,12 @@ describe('future-self Vercel handler', () => {
     expect(generate).toHaveBeenCalledWith({
       diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
       targetDate: '2026-08-27',
+      profile: {
+        mbti: 'INFP',
+        behaviorLogic: profile.behaviorLogic,
+        futureSelfGap: profile.futureSelfGap,
+        supportStyle: 'gentle',
+      },
     });
   });
 
@@ -332,6 +377,7 @@ describe('future-self Vercel handler', () => {
         body: {
           diaryText: '明天下午我已经完成了提案，也认真吃了午饭。',
           targetDate: '2026-08-27',
+          profile,
         },
       },
       response,

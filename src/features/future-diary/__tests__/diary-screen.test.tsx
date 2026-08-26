@@ -1,7 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { FutureDiaryScreen } from '../diary-screen';
+import type { FutureSelfProfile } from '../profile';
 import type { FutureDiary } from '../types';
+
+const profile: FutureSelfProfile = {
+  mbti: 'INFP',
+  behaviorLogic: '我做决定时会先感受自己是否认同，压力大时容易拖延，但明确第一步后就能开始。',
+  futureSelfGap: '希望未来的我更敢表达真实想法，也能在犹豫时先行动。',
+  supportStyle: 'gentle',
+  createdAt: '2026-08-26T10:00:00.000Z',
+  updatedAt: '2026-08-26T10:00:00.000Z',
+};
 
 const generatedDiary: FutureDiary = {
   id: 'diary-1',
@@ -37,6 +47,7 @@ describe('future diary screen', () => {
     await render(
       <FutureDiaryScreen
         client={{ generate: async () => generatedDiary }}
+        profile={profile}
         storage={storage}
         now={() => new Date('2026-08-26T12:00:00.000Z')}
       />,
@@ -59,6 +70,7 @@ describe('future diary screen', () => {
     await render(
       <FutureDiaryScreen
         client={{ generate: async () => generatedDiary }}
+        profile={profile}
         storage={{ load: () => generatedDiary, save: () => undefined, clear: () => undefined }}
       />,
     );
