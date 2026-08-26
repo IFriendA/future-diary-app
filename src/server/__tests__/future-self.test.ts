@@ -147,6 +147,31 @@ describe('future-self server core', () => {
     );
   });
 
+  it('lists every model exposed by the configured Pinova token', async () => {
+    const service = createFutureSelfService({
+      env: {
+        NEW_API_BASE_URL: 'https://pinova.ai/v1',
+        NEW_API_KEY: 'test-token',
+      },
+      fetchImpl: jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          object: 'list',
+          data: [
+            { id: 'deepseek-chat', object: 'model', created: 0, owned_by: 'deepseek' },
+            { id: 'gemini-2.5-flash', object: 'model', created: 0, owned_by: 'google' },
+            { id: 'text-embedding-3-small', object: 'model', created: 0, owned_by: 'openai' },
+          ],
+        }),
+      ),
+    });
+
+    await expect(service.listModels()).resolves.toEqual([
+      'deepseek-chat',
+      'gemini-2.5-flash',
+      'text-embedding-3-small',
+    ]);
+  });
+
   it.each([
     [401, 'config', 'AI 服务配置无效，请检查 Pinova Token。'],
     [429, 'busy', 'AI 服务暂时繁忙，请稍后再试。'],

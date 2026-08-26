@@ -217,10 +217,7 @@ export function createFutureSelfService({
     'Content-Type': 'application/json',
   };
 
-  async function resolveModel(): Promise<string> {
-    if (configuredModel) return configuredModel;
-    if (discoveredModel && discoveredModel.expiresAt > now().getTime()) return discoveredModel.id;
-
+  async function fetchModelIds(): Promise<string[]> {
     const timeout = withTimeoutSignal(25_000);
     try {
       const response = await fetchImpl(`${baseUrl}/models`, {
@@ -229,11 +226,26 @@ export function createFutureSelfService({
       });
       if (!response.ok) throw mapUpstreamError(response.status);
       const body = (await response.json()) as { data?: { id?: unknown }[] };
-      const model = selectChatModel(
-        Array.isArray(body.data)
-          ? body.data.map((item) => (typeof item.id === 'string' ? item.id : '')).filter(Boolean)
-          : [],
-      );
+      return Array.isArray(body.data)
+        ? body.data.map((item) => (typeof item.id === 'string' ? item.id : '')).filter(Boolean)
+        : [];
+    } catch (error) {
+      if (error instanceof FutureSelfError) throw error;
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new FutureSelfError('timeout', '获取 Pinova 模型列表超时。', 504);
+      }
+      throw new FutureSelfError('upstream', '暂时无法获取 Pinova 模型列表。', 502);
+    } finally {
+      timeout.clear();
+    }
+  }
+
+  async function resolveModel(): Promise<string> {
+    if (configuredModel) return configuredModel;
+    if (discoveredModel && discoveredModel.expiresAt > now().getTime()) return discoveredModel.id;
+
+    try {
+      const model = selectChatModel(await fetchModelIds());
       discoveredModel = { id: model, expiresAt: now().getTime() + 10 * 60 * 1000 };
       return model;
     } catch (error) {
@@ -242,8 +254,6 @@ export function createFutureSelfService({
         throw new FutureSelfError('timeout', '未来的我暂时没有回信，请稍后再试。', 504);
       }
       throw new FutureSelfError('upstream', '未来的我暂时没有回信，请稍后再试。', 502);
-    } finally {
-      timeout.clear();
     }
   }
 
@@ -277,6 +287,8 @@ export function createFutureSelfService({
   }
 
   return {
+    listModels: fetchModelIds,
+
     async generate(request: DiaryRequest): Promise<FutureSelfResult> {
       const model = await resolveModel();
       const response = await requestCompletion(request, model);
