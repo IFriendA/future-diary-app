@@ -48,7 +48,9 @@ describe('future diary app profile routing', () => {
     );
 
     expect(screen.getByText('写给明天')).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText('未来的我'));
+    await fireEvent.press(screen.getByText('我的'));
+    await fireEvent.press(screen.getByText('未来人格'));
+    await fireEvent.press(screen.getByText('编辑'));
     expect(screen.getByText('选择你的 MBTI')).toBeTruthy();
   });
 });

@@ -8,6 +8,9 @@ import { DiaryDetailScreen } from './diary-detail-screen';
 import { updateMomentStatus } from './diary-state';
 import { buildHomeModel } from './home-model';
 import { LetterScreen } from './letter-screen';
+import { MeHomeScreen, PersonaDetailScreen } from './me-home-screen';
+import { InfoScreen, PreferenceScreen } from './preference-screen';
+import { createPreferenceStorage, type PreferenceStorage } from './preference-storage';
 import type { FutureSelfProfile } from './profile';
 import { RespondScreen } from './respond-screen';
 import { createDiaryStorage, type DiaryStorage } from './storage';
@@ -21,11 +24,16 @@ type Overlay =
   | { name: 'respond'; momentId: string }
   | { name: 'letter'; date: string; back: TabName }
   | { name: 'editor'; date: string; back: TabName }
-  | { name: 'diary-detail'; date: string };
+  | { name: 'diary-detail'; date: string }
+  | { name: 'persona' }
+  | { name: 'preferences' }
+  | { name: 'privacy' }
+  | { name: 'about' };
 
 type Props = {
   client?: Pick<FutureDiaryClient, 'generate'>;
   storage?: DiaryStorage;
+  preferenceStorage?: PreferenceStorage;
   now?: () => Date;
   profile: FutureSelfProfile;
   onEditProfile?: () => void;
@@ -34,13 +42,16 @@ type Props = {
 export function FutureDiaryScreen({
   client,
   storage,
+  preferenceStorage,
   now = () => new Date(),
   profile,
   onEditProfile,
 }: Props) {
   const [resolvedClient] = useState(() => client ?? createFutureDiaryClient());
   const [resolvedStorage] = useState(() => storage ?? createDiaryStorage());
+  const [resolvedPrefs] = useState(() => preferenceStorage ?? createPreferenceStorage());
   const [diaries, setDiaries] = useState<Record<string, FutureDiary>>(() => resolvedStorage.loadAll());
+  const [prefs, setPrefs] = useState(() => resolvedPrefs.load());
   const [tab, setTab] = useState<TabName>('today');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -149,9 +160,15 @@ export function FutureDiaryScreen({
         ) : null}
 
         {overlay === null && tab === 'me' ? (
-          <View>
-            <Text style={styles.meTitle}>我的</Text>
-          </View>
+          <MeHomeScreen
+            profile={profile}
+            onOpenPersona={() => setOverlay({ name: 'persona' })}
+            onOpenFragments={() => setOverlay({ name: 'preferences' })}
+            onOpenNotifications={() => setOverlay({ name: 'preferences' })}
+            onOpenPrivacy={() => setOverlay({ name: 'privacy' })}
+            onOpenAbout={() => setOverlay({ name: 'about' })}
+            onOpenSettings={() => setOverlay({ name: 'preferences' })}
+          />
         ) : null}
 
         {overlay?.name === 'respond' && respondMoment ? (
@@ -179,6 +196,42 @@ export function FutureDiaryScreen({
             onBack={() => setOverlay(null)}
             onOpenLetter={() => setOverlay({ name: 'letter', date: detailDiary.targetDate, back: 'diary' })}
             onEdit={() => openEditor(detailDiary.targetDate, 'diary')}
+          />
+        ) : null}
+
+        {overlay?.name === 'persona' ? (
+          <PersonaDetailScreen
+            profile={profile}
+            onBack={() => setOverlay(null)}
+            onEdit={() => onEditProfile?.()}
+          />
+        ) : null}
+
+        {overlay?.name === 'preferences' ? (
+          <PreferenceScreen
+            title="未来片段"
+            prefs={prefs}
+            onBack={() => setOverlay(null)}
+            onChange={(next) => {
+              resolvedPrefs.save(next);
+              setPrefs(next);
+            }}
+          />
+        ) : null}
+
+        {overlay?.name === 'privacy' ? (
+          <InfoScreen
+            title="隐私与数据"
+            body="日记、人格和偏好都只保存在这台设备上。这一阶段没有账号，也不会上传到云端。"
+            onBack={() => setOverlay(null)}
+          />
+        ) : null}
+
+        {overlay?.name === 'about' ? (
+          <InfoScreen
+            title="关于未来日记"
+            body="未来日记让我先写下明天，再让明天的我把这一天过一遍。通知和云同步还没有接入。"
+            onBack={() => setOverlay(null)}
           />
         ) : null}
 
@@ -287,7 +340,6 @@ const styles = StyleSheet.create({
   tabLabelOn: { color: '#3B82F6', fontSize: 11, fontWeight: '800', marginTop: 4 },
   tabLine: { marginTop: 4, height: 2, width: 16, borderRadius: 1, backgroundColor: 'transparent' },
   tabLineOn: { backgroundColor: '#3B82F6' },
-  meTitle: { color: '#111827', fontSize: 22, fontWeight: '800', marginTop: 8 },
   iconBox: { width: 22, height: 20, alignItems: 'center', justifyContent: 'flex-end' },
   homeRoof: {
     width: 0,

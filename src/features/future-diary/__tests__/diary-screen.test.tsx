@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { FutureDiaryScreen } from '../diary-screen';
 import type { FutureSelfProfile } from '../profile';
+import { createPreferenceStorage } from '../preference-storage';
 import { createDiaryStorage } from '../storage';
 import type { FutureDiary } from '../types';
 
@@ -109,18 +110,22 @@ async function renderToday(options?: {
     profile: FutureSelfProfile;
   }) => Promise<FutureDiary>;
   storage?: ReturnType<typeof createDiaryStorage>;
+  preferenceStorage?: ReturnType<typeof createPreferenceStorage>;
+  profile?: FutureSelfProfile;
 }) {
   const storage = options?.storage ?? seedStorage(options?.diaries, options?.drafts);
   const generate = options?.generate ?? (async () => generatedTomorrow);
+  const prefs = options?.preferenceStorage ?? createPreferenceStorage(createMemoryStorage());
   await render(
     <FutureDiaryScreen
       client={{ generate }}
-      profile={profile}
+      profile={options?.profile ?? profile}
       storage={storage}
+      preferenceStorage={prefs}
       now={() => new Date(2026, 7, 28, 9, 41)}
     />,
   );
-  return { storage, generate };
+  return { storage, generate, prefs };
 }
 
 describe('today home screen', () => {
@@ -324,5 +329,65 @@ describe('diary archive tab', () => {
     expect(screen.getByText('2026年8月')).toBeTruthy();
     await fireEvent.press(screen.getByText('今天'));
     expect(screen.getByText('写给明天')).toBeTruthy();
+  });
+});
+
+describe('me tab', () => {
+  const richProfile: FutureSelfProfile = {
+    ...profile,
+    personaQuote: '我会记得想做的事，也会在犹豫时，陪自己先迈出一步。',
+    behaviorSummary: '先理解，再行动',
+    gapSummary: '主动迈出第一步',
+    supportSummary: '温柔但不纵容',
+  };
+
+  it('shows the existing persona summary and hides logout', async () => {
+    await renderToday({ profile: richProfile });
+
+    await fireEvent.press(screen.getByText('我的'));
+    expect(screen.getByText('未来的我')).toBeTruthy();
+    expect(screen.getByText('INFP · 先理解，再行动')).toBeTruthy();
+    expect(screen.getByText('我会记得想做的事，也会在犹豫时，陪自己先迈出一步。')).toBeTruthy();
+    expect(screen.getByText('尚未启用')).toBeTruthy();
+    expect(screen.queryByText('退出登录')).toBeNull();
+  });
+
+  it('opens persona details and the existing profile editor', async () => {
+    const onEditProfile = jest.fn();
+    await render(
+      <FutureDiaryScreen
+        client={{ generate: async () => generatedTomorrow }}
+        profile={richProfile}
+        storage={seedStorage()}
+        preferenceStorage={createPreferenceStorage(createMemoryStorage())}
+        now={() => new Date(2026, 7, 28, 9, 41)}
+        onEditProfile={onEditProfile}
+      />,
+    );
+
+    await fireEvent.press(screen.getByText('我的'));
+    await fireEvent.press(screen.getByText('未来人格'));
+    expect(screen.getByText('MBTI')).toBeTruthy();
+    expect(screen.getByText('行动方式')).toBeTruthy();
+    expect(screen.getByText('主动迈出第一步')).toBeTruthy();
+    expect(screen.queryByText('今天')).toBeNull();
+    await fireEvent.press(screen.getByText('编辑'));
+    expect(onEditProfile).toHaveBeenCalled();
+  });
+
+  it('persists fragment preferences without sending notifications', async () => {
+    const prefs = createPreferenceStorage(createMemoryStorage());
+    await renderToday({ preferenceStorage: prefs });
+
+    await fireEvent.press(screen.getByText('我的'));
+    await fireEvent.press(screen.getByText('未来片段'));
+    expect(screen.getByText('通知尚未接入，设置会先保存在本地。')).toBeTruthy();
+    await fireEvent(screen.getByLabelText('随机出现'), 'valueChange', false);
+    await fireEvent.press(screen.getByText('时间范围'));
+    expect(prefs.load()).toMatchObject({
+      enabled: false,
+      startTime: '08:00',
+      endTime: '21:00',
+    });
   });
 });
