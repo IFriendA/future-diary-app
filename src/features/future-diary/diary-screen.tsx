@@ -164,7 +164,6 @@ export function FutureDiaryScreen({
             profile={profile}
             onOpenPersona={() => setOverlay({ name: 'persona' })}
             onOpenFragments={() => setOverlay({ name: 'preferences' })}
-            onOpenNotifications={() => setOverlay({ name: 'preferences' })}
             onOpenPrivacy={() => setOverlay({ name: 'privacy' })}
             onOpenAbout={() => setOverlay({ name: 'about' })}
             onOpenSettings={() => setOverlay({ name: 'preferences' })}

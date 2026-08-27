@@ -348,7 +348,7 @@ describe('me tab', () => {
     expect(screen.getByText('未来的我')).toBeTruthy();
     expect(screen.getByText('INFP · 先理解，再行动')).toBeTruthy();
     expect(screen.getByText('我会记得想做的事，也会在犹豫时，陪自己先迈出一步。')).toBeTruthy();
-    expect(screen.getByText('尚未启用')).toBeTruthy();
+    expect(screen.queryByText('通知')).toBeNull();
     expect(screen.queryByText('退出登录')).toBeNull();
   });
 

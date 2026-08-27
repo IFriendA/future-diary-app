@@ -6,7 +6,6 @@ type Props = {
   profile: FutureSelfProfile;
   onOpenPersona(): void;
   onOpenFragments(): void;
-  onOpenNotifications(): void;
   onOpenPrivacy(): void;
   onOpenAbout(): void;
   onOpenSettings(): void;
@@ -32,7 +31,6 @@ export function MeHomeScreen({
   profile,
   onOpenPersona,
   onOpenFragments,
-  onOpenNotifications,
   onOpenPrivacy,
   onOpenAbout,
   onOpenSettings,
@@ -47,9 +45,7 @@ export function MeHomeScreen({
       </View>
 
       <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <View style={styles.avatarCore} />
-        </View>
+        <View accessibilityLabel="头像" style={styles.avatar} />
         <Text style={styles.name}>未来的我</Text>
         <Text style={styles.tagline}>{personaTagline(profile)}</Text>
         <Text style={styles.quote}>{personaQuoteText(profile)}</Text>
@@ -58,7 +54,6 @@ export function MeHomeScreen({
       <View style={styles.card}>
         <MenuRow title="未来人格" subtitle="性格、行动方式与鼓励方式" onPress={onOpenPersona} />
         <MenuRow title="未来片段" subtitle="随机出现的时间与频率" onPress={onOpenFragments} />
-        <MenuRow title="通知" subtitle="尚未启用" onPress={onOpenNotifications} />
         <MenuRow title="隐私与数据" onPress={onOpenPrivacy} />
         <MenuRow title="关于未来日记" last onPress={onOpenAbout} />
       </View>
@@ -151,13 +146,10 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 1.5,
-    borderColor: '#BFDBFE',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#E5E7EB',
     marginBottom: 12,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#FFFFFF',
   },
-  avatarCore: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#3B82F6' },
   name: { color: '#111827', fontSize: 20, fontWeight: '800', marginBottom: 6 },
   tagline: { color: '#6B7280', fontSize: 14, fontWeight: '600', marginBottom: 10 },
   quote: { color: '#4B5563', fontSize: 14, lineHeight: 22, textAlign: 'center' },
