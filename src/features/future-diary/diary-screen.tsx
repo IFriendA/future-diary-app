@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createFutureDiaryClient, type FutureDiaryClient } from './client';
+import { DiaryArchiveScreen } from './diary-archive-screen';
+import { DiaryDetailScreen } from './diary-detail-screen';
 import { updateMomentStatus } from './diary-state';
 import { buildHomeModel } from './home-model';
 import { LetterScreen } from './letter-screen';
@@ -13,11 +15,13 @@ import { TodayHome } from './today-home';
 import type { DiaryMoment, FutureDiary, MomentStatus } from './types';
 import { WriteScreen } from './write-screen';
 
-type ViewState =
-  | { name: 'home' }
+type TabName = 'today' | 'diary' | 'me';
+
+type Overlay =
   | { name: 'respond'; momentId: string }
-  | { name: 'letter'; date: string }
-  | { name: 'editor'; date: string };
+  | { name: 'letter'; date: string; back: TabName }
+  | { name: 'editor'; date: string; back: TabName }
+  | { name: 'diary-detail'; date: string };
 
 type Props = {
   client?: Pick<FutureDiaryClient, 'generate'>;
@@ -37,35 +41,39 @@ export function FutureDiaryScreen({
   const [resolvedClient] = useState(() => client ?? createFutureDiaryClient());
   const [resolvedStorage] = useState(() => storage ?? createDiaryStorage());
   const [diaries, setDiaries] = useState<Record<string, FutureDiary>>(() => resolvedStorage.loadAll());
-  const [view, setView] = useState<ViewState>({ name: 'home' });
+  const [tab, setTab] = useState<TabName>('today');
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [draftSaved, setDraftSaved] = useState(true);
   const [respondChoice, setRespondChoice] = useState<MomentStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const home = buildHomeModel({ diaries, now: now() });
+  const currentNow = now();
+  const home = buildHomeModel({ diaries, now: currentNow });
   const editorValue =
-    view.name === 'editor' ? editorTextFor(view.date, drafts, diaries, resolvedStorage) : '';
+    overlay?.name === 'editor' ? editorTextFor(overlay.date, drafts, diaries, resolvedStorage) : '';
   const respondMoment =
-    view.name === 'respond'
-      ? (diaries[home.todayKey]?.moments.find((moment) => moment.id === view.momentId) ?? null)
+    overlay?.name === 'respond'
+      ? (diaries[home.todayKey]?.moments.find((moment) => moment.id === overlay.momentId) ?? null)
       : null;
-  const letterDiary = view.name === 'letter' ? diaries[view.date] ?? null : null;
+  const letterDiary = overlay?.name === 'letter' ? diaries[overlay.date] ?? null : null;
+  const detailDiary = overlay?.name === 'diary-detail' ? diaries[overlay.date] ?? null : null;
+  const showTabs = overlay === null;
 
   function persist(diary: FutureDiary) {
     resolvedStorage.save(diary);
     setDiaries((current) => ({ ...current, [diary.targetDate]: diary }));
   }
 
-  function openEditor(date: string) {
+  function openEditor(date: string, back: TabName) {
     setError('');
     setDraftSaved(true);
     setDrafts((current) => ({
       ...current,
       [date]: editorTextFor(date, current, diaries, resolvedStorage),
     }));
-    setView({ name: 'editor', date });
+    setOverlay({ name: 'editor', date, back });
   }
 
   function changeDraft(date: string, text: string) {
@@ -74,7 +82,17 @@ export function FutureDiaryScreen({
     setDraftSaved(true);
   }
 
-  async function submitEditor(date: string) {
+  function closeOverlay() {
+    if (!overlay) return;
+    if ((overlay.name === 'editor' || overlay.name === 'letter') && overlay.back === 'diary') {
+      setTab('diary');
+      setOverlay({ name: 'diary-detail', date: overlay.date });
+      return;
+    }
+    setOverlay(null);
+  }
+
+  async function submitEditor(date: string, back: TabName) {
     const diaryText = (drafts[date] ?? '').trim();
     if (diaryText.length < 10 || isLoading) return;
     setError('');
@@ -88,7 +106,7 @@ export function FutureDiaryScreen({
         delete next[date];
         return next;
       });
-      setView({ name: 'letter', date });
+      setOverlay({ name: 'letter', date, back });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '未来的我暂时没有回信，请稍后再试。');
     } finally {
@@ -106,68 +124,95 @@ export function FutureDiaryScreen({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.page}>
-        {view.name === 'home' ? (
+        {overlay === null && tab === 'today' ? (
           <ScrollView contentContainerStyle={styles.homeScroll} showsVerticalScrollIndicator={false}>
             <TodayHome
               home={home}
               onEditProfile={onEditProfile}
               onRespond={(moment) => {
                 setRespondChoice(moment.status === 'pending' ? null : moment.status);
-                setView({ name: 'respond', momentId: moment.id });
+                setOverlay({ name: 'respond', momentId: moment.id });
               }}
-              onOpenLetter={(diary) => setView({ name: 'letter', date: diary.targetDate })}
-              onWriteTomorrow={() => openEditor(home.tomorrowKey)}
-              onEditTomorrow={() => openEditor(home.tomorrowKey)}
+              onOpenLetter={(diary) => setOverlay({ name: 'letter', date: diary.targetDate, back: 'today' })}
+              onWriteTomorrow={() => openEditor(home.tomorrowKey, 'today')}
+              onEditTomorrow={() => openEditor(home.tomorrowKey, 'today')}
             />
           </ScrollView>
         ) : null}
 
-        {view.name === 'respond' && respondMoment ? (
+        {overlay === null && tab === 'diary' ? (
+          <DiaryArchiveScreen
+            diaries={diaries}
+            now={currentNow}
+            onOpen={(date) => setOverlay({ name: 'diary-detail', date })}
+          />
+        ) : null}
+
+        {overlay === null && tab === 'me' ? (
+          <View>
+            <Text style={styles.meTitle}>我的</Text>
+          </View>
+        ) : null}
+
+        {overlay?.name === 'respond' && respondMoment ? (
           <RespondScreen
             moment={respondMoment}
             selected={respondChoice}
-            onBack={() => setView({ name: 'home' })}
+            onBack={() => setOverlay(null)}
             onSelect={(status) => chooseStatus(respondMoment, status)}
-            onConfirm={() => setView({ name: 'home' })}
+            onConfirm={() => setOverlay(null)}
           />
         ) : null}
 
-        {view.name === 'letter' && letterDiary ? (
+        {overlay?.name === 'letter' && letterDiary ? (
           <LetterScreen
             diary={letterDiary}
-            onBack={() => setView({ name: 'home' })}
-            onAccept={() => setView({ name: 'home' })}
-            onEdit={() => openEditor(letterDiary.targetDate)}
+            onBack={closeOverlay}
+            onAccept={closeOverlay}
+            onEdit={() => openEditor(letterDiary.targetDate, overlay.back)}
           />
         ) : null}
 
-        {view.name === 'editor' ? (
+        {overlay?.name === 'diary-detail' && detailDiary ? (
+          <DiaryDetailScreen
+            diary={detailDiary}
+            onBack={() => setOverlay(null)}
+            onOpenLetter={() => setOverlay({ name: 'letter', date: detailDiary.targetDate, back: 'diary' })}
+            onEdit={() => openEditor(detailDiary.targetDate, 'diary')}
+          />
+        ) : null}
+
+        {overlay?.name === 'editor' ? (
           <WriteScreen
-            dateKey={view.date}
+            dateKey={overlay.date}
             value={editorValue}
             saved={draftSaved}
             isLoading={isLoading}
             error={error}
-            onChange={(text) => changeDraft(view.date, text)}
-            onBack={() => setView({ name: 'home' })}
-            onSubmit={() => void submitEditor(view.date)}
+            onChange={(text) => changeDraft(overlay.date, text)}
+            onBack={closeOverlay}
+            onSubmit={() => void submitEditor(overlay.date, overlay.back)}
           />
         ) : null}
 
-        {view.name === 'home' ? (
+        {showTabs ? (
           <View style={styles.tabBar}>
-            <View accessibilityState={{ selected: true }} style={styles.tab}>
-              <TabIcon name="today" active />
-              <Text style={styles.tabLabelOn}>今天</Text>
-            </View>
-            <View style={styles.tabMuted}>
-              <TabIcon name="diary" />
-              <Text style={styles.tabLabel}>日记</Text>
-            </View>
-            <View style={styles.tabMuted}>
-              <TabIcon name="me" />
-              <Text style={styles.tabLabel}>我的</Text>
-            </View>
+            {(['today', 'diary', 'me'] as const).map((name) => {
+              const active = tab === name;
+              const label = name === 'today' ? '今天' : name === 'diary' ? '日记' : '我的';
+              return (
+                <Pressable
+                  key={name}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setTab(name)}
+                  style={styles.tab}
+                >
+                  <TabIcon name={name} active={active} />
+                  <Text style={active ? styles.tabLabelOn : styles.tabLabel}>{label}</Text>
+                  <View style={[styles.tabLine, active && styles.tabLineOn]} />
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
       </View>
@@ -238,9 +283,11 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   tab: { alignItems: 'center', minWidth: 72 },
-  tabMuted: { alignItems: 'center', minWidth: 72, opacity: 0.9 },
   tabLabel: { color: '#9CA3AF', fontSize: 11, fontWeight: '600', marginTop: 4 },
   tabLabelOn: { color: '#3B82F6', fontSize: 11, fontWeight: '800', marginTop: 4 },
+  tabLine: { marginTop: 4, height: 2, width: 16, borderRadius: 1, backgroundColor: 'transparent' },
+  tabLineOn: { backgroundColor: '#3B82F6' },
+  meTitle: { color: '#111827', fontSize: 22, fontWeight: '800', marginTop: 8 },
   iconBox: { width: 22, height: 20, alignItems: 'center', justifyContent: 'flex-end' },
   homeRoof: {
     width: 0,

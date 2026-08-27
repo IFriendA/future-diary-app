@@ -266,12 +266,63 @@ describe('today home screen', () => {
     expect(screen.getByText('8月29日 · 明天')).toBeTruthy();
     expect(screen.getByLabelText('写下明天的日记').props.value).toBe(tomorrowDiary.rawText);
   });
+});
 
-  it('does not navigate when 日记 or 我的 is shown', async () => {
+describe('diary archive tab', () => {
+  it('switches to the diary calendar and recent list from the bottom tab', async () => {
+    await renderToday({ diaries: [todayDiary, tomorrowDiary] });
+
+    await fireEvent.press(screen.getByText('日记'));
+    expect(screen.getByText('2026年8月')).toBeTruthy();
+    expect(screen.getByText('8月28日 完成方案第一版')).toBeTruthy();
+    expect(screen.getByText('8月29日 写完剩下的部分')).toBeTruthy();
+    expect(screen.getAllByText('进行中').length).toBe(2);
+    expect(screen.queryByText('写给明天')).toBeNull();
+  });
+
+  it('changes month from the calendar controls', async () => {
+    await renderToday({ diaries: [todayDiary] });
+
+    await fireEvent.press(screen.getByText('日记'));
+    await fireEvent.press(screen.getByLabelText('下个月'));
+    expect(screen.getByText('2026年9月')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('上个月'));
+    expect(screen.getByText('2026年8月')).toBeTruthy();
+  });
+
+  it('opens a diary detail with original text, reply and real moment results', async () => {
+    await renderToday({ diaries: [todayDiary] });
+
+    await fireEvent.press(screen.getByText('日记'));
+    await fireEvent.press(screen.getByText('8月28日 完成方案第一版'));
+    expect(screen.getByText('我写下的明天')).toBeTruthy();
+    expect(screen.getByText(todayDiary.rawText)).toBeTruthy();
+    expect(screen.getByText('来自明天的回信')).toBeTruthy();
+    expect(screen.getByText('后来发生了')).toBeTruthy();
+    expect(screen.getAllByText('待确认').length).toBe(2);
+    expect(screen.queryByText('今天')).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText('返回'));
+    expect(screen.getByText('2026年8月')).toBeTruthy();
+    expect(screen.getByText('今天')).toBeTruthy();
+  });
+
+  it('opens the existing editor from diary detail', async () => {
+    await renderToday({ diaries: [todayDiary] });
+
+    await fireEvent.press(screen.getByText('日记'));
+    await fireEvent.press(screen.getByText('8月28日 完成方案第一版'));
+    await fireEvent.press(screen.getByText('编辑日记'));
+    expect(screen.getByText('8月28日 · 明天')).toBeTruthy();
+    expect(screen.getByLabelText('写下明天的日记').props.value).toBe(todayDiary.rawText);
+  });
+
+  it('returns to today home from the today tab', async () => {
     await renderToday({ diaries: [] });
+
+    await fireEvent.press(screen.getByText('日记'));
+    expect(screen.getByText('2026年8月')).toBeTruthy();
+    await fireEvent.press(screen.getByText('今天'));
     expect(screen.getByText('写给明天')).toBeTruthy();
-    expect(screen.getByText('日记')).toBeTruthy();
-    expect(screen.getByText('我的')).toBeTruthy();
-    expect(screen.queryByText('日记页面')).toBeNull();
   });
 });
