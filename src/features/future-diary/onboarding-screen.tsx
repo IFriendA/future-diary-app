@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FormationDisc } from './formation-disc';
 import {
   MBTI_TYPES,
   SUPPORT_STYLE_LABEL,
@@ -74,7 +75,7 @@ export function FutureSelfOnboarding({
   onComplete,
   now = () => new Date(),
   generatePersona,
-  stageDelayMs = 420,
+  stageDelayMs = 1200,
 }: Props) {
   const [step, setStep] = useState<Step>(initialProfile ? 'mbti' : 'welcome');
   const [mbti, setMbti] = useState<MbtiType | null>(initialProfile?.mbti ?? null);
@@ -102,21 +103,26 @@ export function FutureSelfOnboarding({
       : null;
 
   async function playReveal(result: FuturePersonaResult) {
+    const delay = stageDelayMs;
+    const hold = delay === 0 ? 0 : delay * 2;
+
     setVisibleNodes({ mbti: result.nodes.mbti });
     setStageStatus(['done', 'active', 'wait']);
-    await wait(stageDelayMs);
+    await wait(delay);
     if (cancelled.current) return;
-    setVisibleNodes((current) => ({
-      ...current,
-      behavior: result.nodes.behavior,
-      gap: result.nodes.gap,
-    }));
+
+    setVisibleNodes((current) => ({ ...current, behavior: result.nodes.behavior }));
+    await wait(delay);
+    if (cancelled.current) return;
+
+    setVisibleNodes((current) => ({ ...current, gap: result.nodes.gap }));
     setStageStatus(['done', 'done', 'active']);
-    await wait(stageDelayMs);
+    await wait(delay);
     if (cancelled.current) return;
+
     setVisibleNodes(result.nodes);
     setStageStatus(['done', 'done', 'done']);
-    await wait(stageDelayMs);
+    await wait(hold);
     if (cancelled.current) return;
     setStep('confirm');
   }
@@ -343,18 +349,7 @@ export function FutureSelfOnboarding({
             <View style={styles.generating}>
               <Text style={styles.title}>未来的我正在形成</Text>
               <Text style={styles.subtitle}>我正在理解今天的你，准备好明天陪你行动。</Text>
-              <View style={styles.radar}>
-                <View style={[styles.ring, styles.ringOuter]} />
-                <View style={[styles.ring, styles.ringMid]} />
-                <View style={[styles.ring, styles.ringInner]} />
-                <View style={styles.radarCore}>
-                  <Text style={styles.coreSpark}>✦</Text>
-                </View>
-                <Text style={[styles.nodeLabel, styles.nodeTl]}>{visibleNodes.mbti ?? ''}</Text>
-                <Text style={[styles.nodeLabel, styles.nodeTr]}>{visibleNodes.behavior ?? ''}</Text>
-                <Text style={[styles.nodeLabel, styles.nodeBl]}>{visibleNodes.gap ?? ''}</Text>
-                <Text style={[styles.nodeLabel, styles.nodeBr]}>{visibleNodes.support ?? ''}</Text>
-              </View>
+              <FormationDisc nodes={visibleNodes} />
               <View style={styles.stageList}>
                 {STAGES.map((item, index) => {
                   const status = stageStatus[index];
@@ -548,30 +543,6 @@ const styles = StyleSheet.create({
   supportTitle: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   supportDetail: { color: colors.sub, fontSize: 13, lineHeight: 20 },
   generating: { paddingTop: 24 },
-  radar: { height: 260, marginVertical: 12, alignItems: 'center', justifyContent: 'center' },
-  ring: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 999,
-  },
-  ringOuter: { width: 220, height: 220 },
-  ringMid: { width: 150, height: 150 },
-  ringInner: { width: 84, height: 84 },
-  radarCore: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coreSpark: { color: '#A78BFA', fontSize: 18 },
-  nodeLabel: { position: 'absolute', color: colors.ink, fontSize: 13, fontWeight: '700', maxWidth: 96 },
-  nodeTl: { top: 18, left: 8 },
-  nodeTr: { top: 18, right: 8, textAlign: 'right' },
-  nodeBl: { bottom: 28, left: 8 },
-  nodeBr: { bottom: 28, right: 8, textAlign: 'right' },
   stageList: { gap: 14, marginTop: 8 },
   stageRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stageDot: {
