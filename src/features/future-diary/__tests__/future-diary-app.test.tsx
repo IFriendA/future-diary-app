@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { FutureDiaryApp } from '../future-diary-app';
 import type { FutureSelfProfile } from '../profile';
+import { createDiaryStorage } from '../storage';
 
 const profile: FutureSelfProfile = {
   mbti: 'INFP',
@@ -12,10 +13,24 @@ const profile: FutureSelfProfile = {
   updatedAt: '2026-08-26T10:00:00.000Z',
 };
 
+function emptyDiaryStorage() {
+  const values: Record<string, string> = {};
+  return createDiaryStorage({
+    getItem: (key) => values[key] ?? null,
+    setItem: (key, next) => {
+      values[key] = next;
+    },
+    removeItem: (key) => {
+      delete values[key];
+    },
+  });
+}
+
 describe('future diary app profile routing', () => {
   it('shows onboarding when no profile is saved', async () => {
     await render(
       <FutureDiaryApp
+        diaryStorage={emptyDiaryStorage()}
         profileStorage={{ load: () => null, save: () => undefined, clear: () => undefined }}
       />,
     );
@@ -26,13 +41,14 @@ describe('future diary app profile routing', () => {
   it('opens the diary for a saved profile and allows editing it', async () => {
     await render(
       <FutureDiaryApp
+        diaryStorage={emptyDiaryStorage()}
+        now={() => new Date(2026, 7, 28, 9, 41)}
         profileStorage={{ load: () => profile, save: () => undefined, clear: () => undefined }}
       />,
     );
 
-    expect(screen.getByText('先记得，再发生。')).toBeTruthy();
-    await fireEvent.press(screen.getByText('调整未来的我'));
+    expect(screen.getByText('写给明天')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('未来的我'));
     expect(screen.getByText('选择你的 MBTI')).toBeTruthy();
   });
 });
-

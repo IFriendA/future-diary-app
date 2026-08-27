@@ -1,6 +1,8 @@
 import type { FutureDiary } from './types';
 
-const STORAGE_KEY = 'future-diary:latest';
+const LEGACY_KEY = 'future-diary:latest';
+const DIARIES_KEY = 'future-diary:by-date';
+const DRAFTS_KEY = 'future-diary:drafts';
 
 export type StorageLike = {
   getItem(key: string): string | null;
@@ -26,27 +28,68 @@ function getDefaultStorage(): StorageLike {
   if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
     return globalThis.localStorage as StorageLike;
   }
-
   return memoryStorage;
 }
 
+function parseRecord<T>(value: string | null): Record<string, T> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, T>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function createDiaryStorage(storage: StorageLike = getDefaultStorage()) {
-  return {
-    load(): FutureDiary | null {
-      try {
-        const value = storage.getItem(STORAGE_KEY);
-        return value ? (JSON.parse(value) as FutureDiary) : null;
-      } catch {
-        return null;
+  function loadAll(): Record<string, FutureDiary> {
+    const diaries = parseRecord<FutureDiary>(storage.getItem(DIARIES_KEY));
+    const legacyRaw = storage.getItem(LEGACY_KEY);
+    if (!legacyRaw) return diaries;
+
+    try {
+      const legacy = JSON.parse(legacyRaw) as FutureDiary;
+      if (legacy?.targetDate && !diaries[legacy.targetDate]) {
+        diaries[legacy.targetDate] = legacy;
+        storage.setItem(DIARIES_KEY, JSON.stringify(diaries));
+        storage.removeItem(LEGACY_KEY);
       }
-    },
+    } catch {
+      storage.removeItem(LEGACY_KEY);
+    }
+    return diaries;
+  }
 
+  function saveAll(diaries: Record<string, FutureDiary>) {
+    storage.setItem(DIARIES_KEY, JSON.stringify(diaries));
+  }
+
+  function loadDrafts() {
+    return parseRecord<string>(storage.getItem(DRAFTS_KEY));
+  }
+
+  return {
+    loadAll,
+    loadByDate(date: string): FutureDiary | null {
+      return loadAll()[date] ?? null;
+    },
     save(diary: FutureDiary) {
-      storage.setItem(STORAGE_KEY, JSON.stringify(diary));
+      const diaries = loadAll();
+      diaries[diary.targetDate] = diary;
+      saveAll(diaries);
     },
-
-    clear() {
-      storage.removeItem(STORAGE_KEY);
+    loadDraft(date: string): string {
+      return loadDrafts()[date] ?? '';
+    },
+    saveDraft(date: string, text: string) {
+      const drafts = loadDrafts();
+      drafts[date] = text;
+      storage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+    },
+    clearDraft(date: string) {
+      const drafts = loadDrafts();
+      delete drafts[date];
+      storage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
     },
   };
 }

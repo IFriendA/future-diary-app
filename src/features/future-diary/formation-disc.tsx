@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 import type { PersonaNodes } from './types';
@@ -51,7 +51,7 @@ function CalloutLine({
   callout: Callout;
   label?: string;
 }) {
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
   const visible = Boolean(label);
   const origin = xy(callout.ringDeg, OUTER_R);
   const elbow = { x: origin.x + callout.elbow.dx, y: origin.y + callout.elbow.dy };
@@ -98,7 +98,7 @@ function CalloutLine({
 }
 
 export function FormationDisc({ nodes }: { nodes: Partial<PersonaNodes> }) {
-  const pulse = useRef(new Animated.Value(0)).current;
+  const [pulse] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const pulseLoop = Animated.loop(
