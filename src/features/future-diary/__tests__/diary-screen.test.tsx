@@ -124,15 +124,17 @@ async function renderToday(options?: {
 }
 
 describe('today home screen', () => {
-  it('shows write-for-tomorrow and hides empty sections', async () => {
+  it('keeps the three home sections in place even when they are empty', async () => {
     await renderToday({ diaries: [] });
 
     expect(screen.getByText('8月28日，周五')).toBeTruthy();
+    expect(screen.getByText('待回应')).toBeTruthy();
+    expect(screen.getByText('0件事等我回应')).toBeTruthy();
+    expect(screen.getByText('来自明天')).toBeTruthy();
+    expect(screen.getByText('明天的回信会写在这里。')).toBeTruthy();
     expect(screen.getByText('写给明天')).toBeTruthy();
     expect(screen.getByText('8月29日')).toBeTruthy();
     expect(screen.getByText('＋ 写下明天')).toBeTruthy();
-    expect(screen.queryByText('待回应')).toBeNull();
-    expect(screen.queryByText('来自明天')).toBeNull();
     expect(screen.getByText('今天')).toBeTruthy();
     expect(screen.getByText('日记')).toBeTruthy();
     expect(screen.getByText('我的')).toBeTruthy();

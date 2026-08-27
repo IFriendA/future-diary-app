@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createFutureDiaryClient, type FutureDiaryClient } from './client';
@@ -213,7 +213,21 @@ function TabIcon({ name, active = false }: { name: 'today' | 'diary' | 'me'; act
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  page: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', paddingHorizontal: 22 },
+  page: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 430,
+    alignSelf: 'center',
+    paddingHorizontal: 22,
+    backgroundColor: '#FFFFFF',
+    ...(Platform.OS === 'web'
+      ? {
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: '#E5E7EB',
+        }
+      : {}),
+  },
   homeScroll: { paddingBottom: 12 },
   tabBar: {
     flexDirection: 'row',

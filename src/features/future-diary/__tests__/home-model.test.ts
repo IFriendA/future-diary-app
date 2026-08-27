@@ -66,7 +66,7 @@ describe('today home model', () => {
     expect(home.tomorrowDiary?.id).toBe('diary-tomorrow');
   });
 
-  it('hides empty sections when there is no today diary and no tomorrow reply', () => {
+  it('returns empty pending and preview data without dropping tomorrow’s date', () => {
     const home = buildHomeModel({
       diaries: {},
       drafts: {},
