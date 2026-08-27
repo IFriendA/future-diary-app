@@ -2,10 +2,13 @@ import {
   FutureSelfError,
   createFutureSelfService,
   normalizeFutureSelfPayload,
+  normalizePersonaPayload,
   selectChatModel,
   validateDiaryRequest,
+  validatePersonaRequest,
 } from '../future-self';
 import { createFutureSelfHandler } from '../../../api/future-self';
+import { createFuturePersonaHandler } from '../../../api/future-persona';
 
 function jsonResponse(status: number, body: unknown) {
   return {
@@ -385,5 +388,158 @@ describe('future-self Vercel handler', () => {
 
     expect(response.statusCode).toBe(403);
     expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe('future persona generation', () => {
+  it('accepts onboarding drafts with empty optional texts', () => {
+    expect(
+      validatePersonaRequest({
+        mbti: 'INFP',
+        behaviorLogic: '  ',
+        futureSelfGap: '',
+        supportStyle: 'gentle',
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        mbti: 'INFP',
+        behaviorLogic: '',
+        futureSelfGap: '',
+        supportStyle: 'gentle',
+      },
+    });
+  });
+
+  it('extracts short node keywords and a first-person confirmation from the model', () => {
+    expect(
+      normalizePersonaPayload(`{
+        "nodes": {
+          "mbti": "INFP",
+          "behavior": "先理解再行动",
+          "gap": "更敢表达",
+          "support": "温柔陪伴"
+        },
+        "quote": "我是明天的你。我会记得你今天想做的事，也会在你犹豫时替你往前迈一步。",
+        "behaviorSummary": "先理解再行动",
+        "gapSummary": "更主动、更果断",
+        "supportSummary": "温柔陪伴"
+      }`),
+    ).toEqual({
+      nodes: {
+        mbti: 'INFP',
+        behavior: '先理解再行动',
+        gap: '更敢表达',
+        support: '温柔陪伴',
+      },
+      quote: '我是明天的你。我会记得你今天想做的事，也会在你犹豫时替你往前迈一步。',
+      behaviorSummary: '先理解再行动',
+      gapSummary: '更主动、更果断',
+      supportSummary: '温柔陪伴',
+    });
+  });
+
+  it('asks the model to abstract the four onboarding fields into display keywords', async () => {
+    const fetchImpl = jest.fn().mockResolvedValueOnce(
+      jsonResponse(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                nodes: {
+                  mbti: 'INFP',
+                  behavior: '先感受再行动',
+                  gap: '更敢表达',
+                  support: '温柔陪伴',
+                },
+                quote: '我是明天的你。我会在犹豫时替自己先迈出一步。',
+                behaviorSummary: '先理解再行动',
+                gapSummary: '更敢表达真实想法',
+                supportSummary: '温柔陪伴',
+              }),
+            },
+          },
+        ],
+      }),
+    );
+
+    const service = createFutureSelfService({
+      env: {
+        NEW_API_BASE_URL: 'https://pinova.ai/v1',
+        NEW_API_KEY: 'test-token',
+        NEW_API_MODEL: 'deepseek-v4-flash',
+      },
+      fetchImpl,
+    });
+
+    await expect(
+      service.generatePersona({
+        mbti: 'INFP',
+        behaviorLogic: profile.behaviorLogic,
+        futureSelfGap: profile.futureSelfGap,
+        supportStyle: 'gentle',
+      }),
+    ).resolves.toEqual({
+      model: 'deepseek-v4-flash',
+      nodes: {
+        mbti: 'INFP',
+        behavior: '先感受再行动',
+        gap: '更敢表达',
+        support: '温柔陪伴',
+      },
+      quote: '我是明天的你。我会在犹豫时替自己先迈出一步。',
+      behaviorSummary: '先理解再行动',
+      gapSummary: '更敢表达真实想法',
+      supportSummary: '温柔陪伴',
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://pinova.ai/v1/chat/completions',
+      expect.objectContaining({
+        body: expect.stringMatching(/抽象|凝练|关键词/),
+      }),
+    );
+  });
+
+  it('returns a generated persona for a valid same-origin POST', async () => {
+    const generatePersona = jest.fn().mockResolvedValue({
+      model: 'deepseek-v4-flash',
+      nodes: {
+        mbti: 'INFP',
+        behavior: '先理解再行动',
+        gap: '更果断',
+        support: '温柔陪伴',
+      },
+      quote: '我是明天的你。',
+      behaviorSummary: '先理解再行动',
+      gapSummary: '更主动、更果断',
+      supportSummary: '温柔陪伴',
+    });
+    const handler = createFuturePersonaHandler({ service: { generatePersona } });
+    const response = createResponseRecorder();
+
+    await handler(
+      {
+        method: 'POST',
+        headers: {
+          host: 'future-diary-app.vercel.app',
+          origin: 'https://future-diary-app.vercel.app',
+          'x-forwarded-for': '203.0.113.8',
+        },
+        body: {
+          mbti: 'INFP',
+          behaviorLogic: profile.behaviorLogic,
+          futureSelfGap: profile.futureSelfGap,
+          supportStyle: 'gentle',
+        },
+      },
+      response,
+    );
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({
+      nodes: { behavior: '先理解再行动', gap: '更果断' },
+      quote: '我是明天的你。',
+    });
   });
 });

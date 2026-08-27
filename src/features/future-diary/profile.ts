@@ -30,6 +30,16 @@ export type FutureSelfProfileDraft = {
 export type FutureSelfProfile = FutureSelfProfileDraft & {
   createdAt: string;
   updatedAt: string;
+  personaQuote?: string;
+  behaviorSummary?: string;
+  gapSummary?: string;
+  supportSummary?: string;
+};
+
+export const SUPPORT_STYLE_LABEL: Record<SupportStyle, string> = {
+  gentle: '温柔陪伴',
+  direct: '直接推动',
+  playful: '轻松幽默',
 };
 
 export type ProfileField = keyof FutureSelfProfileDraft;
@@ -50,17 +60,11 @@ export function validateProfileDraft(input: unknown): ProfileValidation {
   if (!MBTI_TYPES.includes(mbti as MbtiType)) {
     return { ok: false, field: 'mbti', message: '请选择你的 MBTI。' };
   }
-  if (behaviorLogic.length < 20) {
-    return { ok: false, field: 'behaviorLogic', message: '再多写一点，至少 20 个字。' };
-  }
   if (behaviorLogic.length > 500) {
     return { ok: false, field: 'behaviorLogic', message: '请控制在 500 字以内。' };
   }
-  if (futureSelfGap.length < 10) {
-    return { ok: false, field: 'futureSelfGap', message: '再多写一点，至少 10 个字。' };
-  }
-  if (futureSelfGap.length > 300) {
-    return { ok: false, field: 'futureSelfGap', message: '请控制在 300 字以内。' };
+  if (futureSelfGap.length > 500) {
+    return { ok: false, field: 'futureSelfGap', message: '请控制在 500 字以内。' };
   }
   if (!SUPPORT_STYLES.includes(supportStyle as SupportStyle)) {
     return { ok: false, field: 'supportStyle', message: '请选择一种鼓励方式。' };
@@ -81,10 +85,12 @@ export function buildProfile(
   draft: FutureSelfProfileDraft,
   now: Date,
   existing?: FutureSelfProfile | null,
+  persona?: Pick<FutureSelfProfile, 'personaQuote' | 'behaviorSummary' | 'gapSummary' | 'supportSummary'>,
 ): FutureSelfProfile {
   const timestamp = now.toISOString();
   return {
     ...draft,
+    ...persona,
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   };

@@ -23,11 +23,20 @@ describe('future-self profile', () => {
     });
   });
 
-  it('trims the free text and rejects behavior logic shorter than twenty characters', () => {
-    expect(validateProfileDraft({ ...validDraft, behaviorLogic: '  我会先想一想。  ' })).toEqual({
-      ok: false,
-      field: 'behaviorLogic',
-      message: '再多写一点，至少 20 个字。',
+  it('allows empty optional texts and trims surrounding whitespace', () => {
+    expect(
+      validateProfileDraft({
+        ...validDraft,
+        behaviorLogic: '  ',
+        futureSelfGap: '  ',
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        ...validDraft,
+        behaviorLogic: '',
+        futureSelfGap: '',
+      },
     });
 
     expect(
@@ -37,6 +46,19 @@ describe('future-self profile', () => {
         futureSelfGap: `  ${validDraft.futureSelfGap}  `,
       }),
     ).toEqual({ ok: true, value: validDraft });
+  });
+
+  it('rejects optional texts longer than 500 characters', () => {
+    expect(validateProfileDraft({ ...validDraft, behaviorLogic: '我'.repeat(501) })).toEqual({
+      ok: false,
+      field: 'behaviorLogic',
+      message: '请控制在 500 字以内。',
+    });
+    expect(validateProfileDraft({ ...validDraft, futureSelfGap: '我'.repeat(501) })).toEqual({
+      ok: false,
+      field: 'futureSelfGap',
+      message: '请控制在 500 字以内。',
+    });
   });
 
   it('keeps the original creation time when a profile is edited', () => {

@@ -23,3 +23,19 @@ export type FutureSelfResult = {
   model: string;
   moments: Omit<DiaryMoment, 'status'>[];
 };
+
+export type PersonaNodes = {
+  mbti: string;
+  behavior: string;
+  gap: string;
+  support: string;
+};
+
+export type FuturePersonaResult = {
+  model: string;
+  quote: string;
+  nodes: PersonaNodes;
+  behaviorSummary: string;
+  gapSummary: string;
+  supportSummary: string;
+};

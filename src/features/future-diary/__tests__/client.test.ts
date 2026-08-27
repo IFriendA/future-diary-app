@@ -109,4 +109,46 @@ describe('future diary client', () => {
       new FutureDiaryClientError('未来的我暂时没有回信，请稍后再试。', 502),
     );
   });
+
+  it('asks the server to generate a future persona from onboarding answers', async () => {
+    let sentUrl = '';
+    let sentBody = '';
+    const client = createFutureDiaryClient({
+      fetchImpl: async (url, init) => {
+        sentUrl = url;
+        sentBody = init?.body ?? '';
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            model: 'deepseek-v4-flash',
+            nodes: {
+              mbti: 'INFP',
+              behavior: '先理解再行动',
+              gap: '更果断',
+              support: '温柔陪伴',
+            },
+            quote: '我是明天的你。我会记得你今天想做的事。',
+            behaviorSummary: '先理解再行动',
+            gapSummary: '更主动、更果断',
+            supportSummary: '温柔陪伴',
+          }),
+        };
+      },
+    });
+
+    await expect(
+      client.generatePersona({
+        mbti: 'INFP',
+        behaviorLogic: profile.behaviorLogic,
+        futureSelfGap: profile.futureSelfGap,
+        supportStyle: 'gentle',
+      }),
+    ).resolves.toMatchObject({
+      nodes: { behavior: '先理解再行动', gap: '更果断' },
+      quote: '我是明天的你。我会记得你今天想做的事。',
+    });
+    expect(sentUrl).toBe('/api/future-persona');
+    expect(JSON.parse(sentBody)).toMatchObject({ mbti: 'INFP', supportStyle: 'gentle' });
+  });
 });

@@ -20,7 +20,7 @@ import type { FutureDiary, MomentStatus } from './types';
 import type { FutureSelfProfile } from './profile';
 
 type FutureDiaryScreenProps = {
-  client?: FutureDiaryClient;
+  client?: Pick<FutureDiaryClient, 'generate'>;
   storage?: DiaryStorage;
   now?: () => Date;
   profile: FutureSelfProfile;

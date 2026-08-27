@@ -20,7 +20,7 @@ describe('future diary app profile routing', () => {
       />,
     );
 
-    expect(screen.getByText('先选出我的 MBTI')).toBeTruthy();
+    expect(screen.getByText('认识未来的我')).toBeTruthy();
   });
 
   it('opens the diary for a saved profile and allows editing it', async () => {
@@ -32,7 +32,7 @@ describe('future diary app profile routing', () => {
 
     expect(screen.getByText('先记得，再发生。')).toBeTruthy();
     await fireEvent.press(screen.getByText('调整未来的我'));
-    expect(screen.getByText('先选出我的 MBTI')).toBeTruthy();
+    expect(screen.getByText('选择你的 MBTI')).toBeTruthy();
   });
 });
 

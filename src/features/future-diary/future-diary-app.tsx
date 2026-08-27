@@ -26,6 +26,7 @@ export function FutureDiaryApp({ profileStorage, diaryStorage, client, now = () 
       <FutureSelfOnboarding
         initialProfile={profile}
         now={now}
+        generatePersona={(draft) => resolvedClient.generatePersona(draft)}
         onComplete={(nextProfile) => {
           resolvedProfileStorage.save(nextProfile);
           setProfile(nextProfile);

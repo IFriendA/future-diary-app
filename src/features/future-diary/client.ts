@@ -1,5 +1,5 @@
-import type { FutureDiary, FutureSelfResult } from './types';
-import type { FutureSelfProfile } from './profile';
+import type { FutureDiary, FuturePersonaResult, FutureSelfResult } from './types';
+import type { FutureSelfProfile, FutureSelfProfileDraft } from './profile';
 
 type GenerateInput = {
   diaryText: string;
@@ -49,6 +49,52 @@ function readResult(body: unknown): FutureSelfResult {
   return result as FutureSelfResult;
 }
 
+function readPersona(body: unknown): FuturePersonaResult {
+  if (!body || typeof body !== 'object') {
+    throw new FutureDiaryClientError('未来的我这次没有形成完整人格。', 502);
+  }
+
+  const result = body as Partial<FuturePersonaResult>;
+  const nodes = result.nodes;
+  if (
+    typeof result.model !== 'string' ||
+    typeof result.quote !== 'string' ||
+    typeof result.behaviorSummary !== 'string' ||
+    typeof result.gapSummary !== 'string' ||
+    typeof result.supportSummary !== 'string' ||
+    !nodes ||
+    typeof nodes !== 'object' ||
+    typeof nodes.mbti !== 'string' ||
+    typeof nodes.behavior !== 'string' ||
+    typeof nodes.gap !== 'string' ||
+    typeof nodes.support !== 'string'
+  ) {
+    throw new FutureDiaryClientError('未来的我这次没有形成完整人格。', 502);
+  }
+
+  return result as FuturePersonaResult;
+}
+
+async function parseResponse(
+  response: FetchResponse,
+  fallback = '未来的我暂时没有回信，请稍后再试。',
+): Promise<unknown> {
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new FutureDiaryClientError(fallback, response.ok ? 502 : response.status);
+  }
+  if (!response.ok) {
+    const message =
+      body && typeof body === 'object' && typeof (body as { error?: unknown }).error === 'string'
+        ? (body as { error: string }).error
+        : fallback;
+    throw new FutureDiaryClientError(message, response.status);
+  }
+  return body;
+}
+
 export function createFutureDiaryClient({
   fetchImpl = fetch as unknown as FetchLike,
   now = () => new Date(),
@@ -93,6 +139,15 @@ export function createFutureDiaryClient({
         createdAt: createdAt.toISOString(),
         moments: result.moments.map((moment) => ({ ...moment, status: 'pending' })),
       };
+    },
+
+    async generatePersona(profile: FutureSelfProfileDraft): Promise<FuturePersonaResult> {
+      const response = await fetchImpl('/api/future-persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      return readPersona(await parseResponse(response, '未来的我暂时没有形成，请稍后再试。'));
     },
   };
 }
