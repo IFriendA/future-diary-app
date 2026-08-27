@@ -1,9 +1,14 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { chineseDate } from './dates';
 import { SUPPORT_STYLE_LABEL, type FutureSelfProfile } from './profile';
 
 type Props = {
   profile: FutureSelfProfile;
+  demoDateKey: string;
+  isDemo: boolean;
+  onJumpTomorrow(): void;
+  onResetToReal(): void;
   onOpenPersona(): void;
   onOpenFragments(): void;
   onOpenPrivacy(): void;
@@ -29,6 +34,10 @@ function firstSentence(text: string) {
 
 export function MeHomeScreen({
   profile,
+  demoDateKey,
+  isDemo,
+  onJumpTomorrow,
+  onResetToReal,
   onOpenPersona,
   onOpenFragments,
   onOpenPrivacy,
@@ -49,6 +58,22 @@ export function MeHomeScreen({
         <Text style={styles.name}>未来的我</Text>
         <Text style={styles.tagline}>{personaTagline(profile)}</Text>
         <Text style={styles.quote}>{personaQuoteText(profile)}</Text>
+      </View>
+
+      <View style={styles.demoCard}>
+        <Text style={styles.demoTitle}>演示日期</Text>
+        <Text style={styles.demoDate}>
+          {chineseDate(demoDateKey)} · {isDemo ? '演示中' : '真实今天'}
+        </Text>
+        <Text style={styles.demoHint}>仅用于演示，不会改系统时间。</Text>
+        <View style={styles.demoActions}>
+          <Pressable onPress={onJumpTomorrow} style={styles.demoButton}>
+            <Text style={styles.demoButtonText}>跳到明天</Text>
+          </Pressable>
+          <Pressable onPress={onResetToReal} style={styles.demoButton}>
+            <Text style={styles.demoButtonText}>回到真实今天</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -173,6 +198,28 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     textAlign: 'center',
   },
+  demoCard: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    backgroundColor: '#F9FAFB',
+  },
+  demoTitle: { color: '#111827', fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  demoDate: { color: '#111827', fontSize: 15, fontWeight: '600', marginBottom: 6 },
+  demoHint: { color: '#9CA3AF', fontSize: 13, lineHeight: 20, marginBottom: 12 },
+  demoActions: { flexDirection: 'row', gap: 8 },
+  demoButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  demoButtonText: { color: '#111827', fontSize: 14, fontWeight: '700' },
   card: {
     borderWidth: 1,
     borderColor: '#E5E7EB',

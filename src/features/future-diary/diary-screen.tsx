@@ -3,9 +3,11 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { createFutureDiaryClient, type FutureDiaryClient } from './client';
+import { applyDemoDate, createDemoClockStorage, nextDemoDateKey, type DemoClockStorage } from './demo-clock';
 import { DiaryArchiveScreen } from './diary-archive-screen';
 import { DiaryDetailScreen } from './diary-detail-screen';
 import { updateMomentStatus } from './diary-state';
+import { formatDateKey } from './dates';
 import { buildHomeModel } from './home-model';
 import { LetterScreen } from './letter-screen';
 import { MeHomeScreen, PersonaDetailScreen } from './me-home-screen';
@@ -34,6 +36,7 @@ type Props = {
   client?: Pick<FutureDiaryClient, 'generate'>;
   storage?: DiaryStorage;
   preferenceStorage?: PreferenceStorage;
+  clockStorage?: DemoClockStorage;
   now?: () => Date;
   profile: FutureSelfProfile;
   onEditProfile?: () => void;
@@ -43,6 +46,7 @@ export function FutureDiaryScreen({
   client,
   storage,
   preferenceStorage,
+  clockStorage,
   now = () => new Date(),
   profile,
   onEditProfile,
@@ -50,8 +54,10 @@ export function FutureDiaryScreen({
   const [resolvedClient] = useState(() => client ?? createFutureDiaryClient());
   const [resolvedStorage] = useState(() => storage ?? createDiaryStorage());
   const [resolvedPrefs] = useState(() => preferenceStorage ?? createPreferenceStorage());
+  const [resolvedClock] = useState(() => clockStorage ?? createDemoClockStorage());
   const [diaries, setDiaries] = useState<Record<string, FutureDiary>>(() => resolvedStorage.loadAll());
   const [prefs, setPrefs] = useState(() => resolvedPrefs.load());
+  const [demoDateKey, setDemoDateKey] = useState(() => resolvedClock.load());
   const [tab, setTab] = useState<TabName>('today');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -60,7 +66,7 @@ export function FutureDiaryScreen({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const currentNow = now();
+  const currentNow = applyDemoDate(now(), demoDateKey);
   const home = buildHomeModel({ diaries, now: currentNow });
   const editorValue =
     overlay?.name === 'editor' ? editorTextFor(overlay.date, drafts, diaries, resolvedStorage) : '';
@@ -162,6 +168,17 @@ export function FutureDiaryScreen({
         {overlay === null && tab === 'me' ? (
           <MeHomeScreen
             profile={profile}
+            demoDateKey={formatDateKey(currentNow)}
+            isDemo={demoDateKey !== null}
+            onJumpTomorrow={() => {
+              const next = nextDemoDateKey(currentNow);
+              resolvedClock.save(next);
+              setDemoDateKey(next);
+            }}
+            onResetToReal={() => {
+              resolvedClock.save(null);
+              setDemoDateKey(null);
+            }}
             onOpenPersona={() => setOverlay({ name: 'persona' })}
             onOpenFragments={() => setOverlay({ name: 'preferences' })}
             onOpenPrivacy={() => setOverlay({ name: 'privacy' })}

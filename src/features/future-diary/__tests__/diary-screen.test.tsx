@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { createDemoClockStorage } from '../demo-clock';
 import { FutureDiaryScreen } from '../diary-screen';
 import type { FutureSelfProfile } from '../profile';
 import { createPreferenceStorage } from '../preference-storage';
@@ -111,21 +112,24 @@ async function renderToday(options?: {
   }) => Promise<FutureDiary>;
   storage?: ReturnType<typeof createDiaryStorage>;
   preferenceStorage?: ReturnType<typeof createPreferenceStorage>;
+  clockStorage?: ReturnType<typeof createDemoClockStorage>;
   profile?: FutureSelfProfile;
 }) {
   const storage = options?.storage ?? seedStorage(options?.diaries, options?.drafts);
   const generate = options?.generate ?? (async () => generatedTomorrow);
   const prefs = options?.preferenceStorage ?? createPreferenceStorage(createMemoryStorage());
+  const clock = options?.clockStorage ?? createDemoClockStorage(createMemoryStorage());
   await render(
     <FutureDiaryScreen
       client={{ generate }}
       profile={options?.profile ?? profile}
       storage={storage}
       preferenceStorage={prefs}
+      clockStorage={clock}
       now={() => new Date(2026, 7, 28, 9, 41)}
     />,
   );
-  return { storage, generate, prefs };
+  return { storage, generate, prefs, clock };
 }
 
 describe('today home screen', () => {
@@ -389,5 +393,37 @@ describe('me tab', () => {
       startTime: '08:00',
       endTime: '21:00',
     });
+  });
+
+  it('jumps the demo date so tomorrow’s diary becomes 待回应', async () => {
+    const clock = createDemoClockStorage(createMemoryStorage());
+    await renderToday({ diaries: [todayDiary, tomorrowDiary], clockStorage: clock });
+
+    await fireEvent.press(screen.getByText('我的'));
+    expect(screen.getByText('8月28日 · 真实今天')).toBeTruthy();
+    expect(screen.getByText('仅用于演示，不会改系统时间。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('跳到明天'));
+    expect(clock.load()).toBe('2026-08-29');
+    expect(screen.getByText('8月29日 · 演示中')).toBeTruthy();
+
+    await fireEvent.press(screen.getByText('今天'));
+    expect(screen.getByText('8月29日，周六')).toBeTruthy();
+    expect(screen.getByText('1件事等我回应')).toBeTruthy();
+    expect(screen.getByText('写完剩下的部分')).toBeTruthy();
+    expect(screen.queryByText('完成方案第一版')).toBeNull();
+  });
+
+  it('returns from the demo date to the real today', async () => {
+    const clock = createDemoClockStorage(createMemoryStorage());
+    clock.save('2026-08-29');
+    await renderToday({ diaries: [todayDiary, tomorrowDiary], clockStorage: clock });
+
+    expect(screen.getByText('8月29日，周六')).toBeTruthy();
+    await fireEvent.press(screen.getByText('我的'));
+    await fireEvent.press(screen.getByText('回到真实今天'));
+    expect(clock.load()).toBeNull();
+    await fireEvent.press(screen.getByText('今天'));
+    expect(screen.getByText('8月28日，周五')).toBeTruthy();
+    expect(screen.getByText('完成方案第一版')).toBeTruthy();
   });
 });
